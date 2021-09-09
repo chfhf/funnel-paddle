@@ -22,7 +22,7 @@
 
 > QNLI验证集上accuracy=95.277%
 >
-> SQuAD v1.1验证集上F1/EM=94.25/89.0，SQuAD v2.0验证集F1/EM=89.70/87.6（见论文table 5）
+> SQuAD v1.1验证集上F1/EM=94.25/88.3，SQuAD v2.0验证集F1/EM=89.70/86.7（见论文table 5）
 
 
 
