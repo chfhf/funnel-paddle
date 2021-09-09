@@ -1,0 +1,8 @@
+jieba
+h5py
+colorlog
+colorama
+seqeval
+multiprocess
+pandas
+sentencepiece
