@@ -7,8 +7,8 @@
 本项目是 [Funnel Pytorch版本](https://github.com/huggingface/transformers/tree/master/src/transformers/models/funnel)  在 Paddle 2.x上的开源实现。
 
 复现思路：
-1. 实现了[Paddorch库](https://github.com/zzz2010/paddorch) 把Pytorch 接口在 Paddle实现实现
-2. 实现了[HF_paddle库](https://gitee.com/littledesk/hf_transformers_paddle) 把huggingface_transformer 接口在Paddorch/Paddle上实现
+1. 实现了Paddorch库，把Pytorch 接口在 Paddle实现实现，在paddorch下
+2. 实现了HF_paddle库，把huggingface_transformer 接口在Paddorch/Paddle上实现，hf_transformers_paddle
 3. 封装了HF_paddle库中Funnel模型（原huggingface 接口）在paddlenlp中
 
 
@@ -28,6 +28,14 @@
 
 ## 环境安装
 
+| 名称   | 值                    |
+| ------ | --------------------- |
+| python | 3\.7                  |
+| GPU    | AI Studio平台32G V100 |
+| 框架   | PaddlePaddle2\.1.2    |
+| Cuda   | 10.1                  |
+| Cudnn  | 7.6                   |
+
 ```bash
 # 克隆本仓库
 # 进入paddlenlp目录
@@ -36,7 +44,6 @@ cd paddlenlp
 pip install -r requirements.txt
 pip install -e .
 # 返回初始目录
-cd ..
 ##安装 Paddorch
 cd paddorch
 pip install -r requirements.txt
