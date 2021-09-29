@@ -23,23 +23,25 @@ from functools import partial
 import numpy as np
 import paddle
 import paddle.nn.functional as F
+from paddlenlp.transformers.funnel import split
 import tqdm
 from paddle.io import DataLoader
 from args import parse_args
 import paddle.nn as nn
 from paddlenlp.data import Pad, Stack, Dict
 from paddlenlp.transformers import BertForQuestionAnswering, BertTokenizer, ErnieForQuestionAnswering, ErnieTokenizer
-from paddlenlp.transformers import LinearDecayWithWarmup,CosineDecayWithWarmup
-from paddlenlp.transformers import FunnelTokenizerFast,FunnelForQuestionAnswering
+from paddlenlp.transformers import LinearDecayWithWarmup, CosineDecayWithWarmup
+from paddlenlp.transformers import FunnelTokenizerFast, FunnelForQuestionAnswering
 from paddlenlp.metrics.squad import squad_evaluate, compute_prediction
 from paddlenlp.datasets import load_dataset
 from visualdl import LogWriter
-freeze_basemodel=False
+
+freeze_basemodel = False
 
 MODEL_CLASSES = {
     "bert": (BertForQuestionAnswering, BertTokenizer),
     "ernie": (ErnieForQuestionAnswering, ErnieTokenizer),
-    "funnel":(FunnelForQuestionAnswering,FunnelTokenizerFast )
+    "funnel": (FunnelForQuestionAnswering, FunnelTokenizerFast)
 
 }
 
@@ -48,15 +50,16 @@ def prepare_train_features(examples, tokenizer, args):
     # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
     # in one example possible giving several features when a context is long, each of those features having a
     # context that overlaps a bit the context of the previous feature.
-    #NOTE: Almost the same functionality as HuggingFace's prepare_train_features function. The main difference is
+    # NOTE: Almost the same functionality as HuggingFace's prepare_train_features function. The main difference is
     # that HugggingFace uses ArrowTable as basic data structure, while we use list of dictionary instead.
     contexts = [examples[i]['context'] for i in range(len(examples))]
     questions = [examples[i]['question'] for i in range(len(examples))]
 
     tokenized_examples = tokenizer(
-        questions ,
-        contexts ,
-        stride=args.doc_stride,return_offsets_mapping=True,max_length=args.max_seq_length,return_overflowing_tokens=True,return_token_type_ids=True )
+        questions,
+        contexts,
+        stride=args.doc_stride, max_seq_len=args.max_seq_length, return_overflowing_tokens=True,
+        return_token_type_ids=True)
 
     # Let's label those examples!
     for i, tokenized_example in enumerate(tokenized_examples):
@@ -70,7 +73,6 @@ def prepare_train_features(examples, tokenizer, args):
 
         # Grab the sequence corresponding to that example (to know what is the context and what is the question).
         sequence_ids = tokenized_example['token_type_ids']
-        attention_mask= tokenized_example['attention_mask']
 
         # One example can give several spans, this is the index of the example containing this span of text.
         sample_index = tokenized_example['overflow_to_sample']
@@ -107,7 +109,7 @@ def prepare_train_features(examples, tokenizer, args):
                 # Otherwise move the token_start_index and token_end_index to the two ends of the answer.
                 # Note: we could go after the last offset if the answer is the last word (edge case).
                 while token_start_index < len(offsets) and offsets[
-                        token_start_index][0] <= start_char:
+                    token_start_index][0] <= start_char:
                     token_start_index += 1
                 tokenized_examples[i]["start_positions"] = token_start_index - 1
                 while offsets[token_end_index][1] >= end_char:
@@ -121,15 +123,16 @@ def prepare_validation_features(examples, tokenizer, args):
     # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
     # in one example possible giving several features when a context is long, each of those features having a
     # context that overlaps a bit the context of the previous feature.
-    #NOTE: Almost the same functionality as HuggingFace's prepare_train_features function. The main difference is
+    # NOTE: Almost the same functionality as HuggingFace's prepare_train_features function. The main difference is
     # that HugggingFace uses ArrowTable as basic data structure, while we use list of dictionary instead.
     contexts = [examples[i]['context'] for i in range(len(examples))]
     questions = [examples[i]['question'] for i in range(len(examples))]
 
     tokenized_examples = tokenizer(
-        questions ,
-        contexts ,
-        stride=args.doc_stride,return_offsets_mapping=True,max_length=args.max_seq_length,return_overflowing_tokens=True,return_token_type_ids=True )
+        questions,
+        contexts,
+        stride=args.doc_stride, max_seq_len=args.max_seq_length, return_overflowing_tokens=True,
+        return_token_type_ids=True,truncation_strategy="only_second")
 
     # For validation, there is no need to compute start and end positions
     for i, tokenized_example in enumerate(tokenized_examples):
@@ -157,7 +160,7 @@ def set_seed(args):
 
 
 @paddle.no_grad()
-def evaluate(model, data_loader, args, global_step,max_eval_examples=None):
+def evaluate(model, data_loader, args, global_step, max_eval_examples=None):
     model.eval()
 
     all_start_logits = []
@@ -165,9 +168,9 @@ def evaluate(model, data_loader, args, global_step,max_eval_examples=None):
     tic_eval = time.time()
 
     for batch in (data_loader):
-        input_ids, token_type_ids,attention_mask = batch
+        input_ids, token_type_ids, attention_mask = batch
         start_logits_tensor, end_logits_tensor = model(input_ids,
-                                                       token_type_ids=token_type_ids,attention_mask=attention_mask)
+                                                       token_type_ids=token_type_ids, attention_mask=attention_mask)
 
         for idx in range(start_logits_tensor.shape[0]):
             # if len(all_start_logits) % 1000 == 0 and len(all_start_logits):
@@ -178,7 +181,7 @@ def evaluate(model, data_loader, args, global_step,max_eval_examples=None):
             all_start_logits.append(start_logits_tensor.numpy()[idx])
             all_end_logits.append(end_logits_tensor.numpy()[idx])
         if max_eval_examples is not None:
-            if len(all_start_logits)>max_eval_examples:
+            if len(all_start_logits) > max_eval_examples:
                 break
 
     all_predictions, all_nbest_json, scores_diff_json = compute_prediction(
@@ -193,7 +196,7 @@ def evaluate(model, data_loader, args, global_step,max_eval_examples=None):
             json.dumps(
                 all_predictions, ensure_ascii=False, indent=4) + "\n")
 
-    out_eval=squad_evaluate(
+    out_eval = squad_evaluate(
         examples=data_loader.dataset.data,
         preds=all_predictions,
         na_probs=scores_diff_json)
@@ -203,7 +206,7 @@ def evaluate(model, data_loader, args, global_step,max_eval_examples=None):
 
 
 class CrossEntropyLossForSQuAD(paddle.nn.Layer):
-    def __init__(self, answerable_classifier=False,answerable_uses_start_logits=False):
+    def __init__(self, answerable_classifier=False, answerable_uses_start_logits=False):
         super(CrossEntropyLossForSQuAD, self).__init__()
         self.answerable_classifier = answerable_classifier
         self.answerable_uses_start_logits = answerable_uses_start_logits
@@ -219,22 +222,19 @@ class CrossEntropyLossForSQuAD(paddle.nn.Layer):
             input=end_logits, label=end_position)
         loss = (start_loss + end_loss) / 2
 
-
         return loss
 
 
 def run(args):
-
-    
     paddle.set_device(args.device)
     if paddle.distributed.get_world_size() > 1:
         paddle.distributed.init_parallel_env()
     rank = paddle.distributed.get_rank()
     args.model_type = args.model_type.lower()
     model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
-    if os.path.isdir(args.model_name_or_path+"/tokenizer"):
-        print("load model from local folder:", args.model_name_or_path+"/tokenizer")
-        tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path+"/tokenizer")
+    if os.path.isdir(args.model_name_or_path + "/tokenizer"):
+        print("load model from local folder:", args.model_name_or_path + "/tokenizer")
+        tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path + "/tokenizer")
     else:
         tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
 
@@ -242,31 +242,31 @@ def run(args):
     if rank == 0:
         if os.path.exists(args.model_name_or_path):
             print("init checkpoint from %s" % args.model_name_or_path)
-    if os.path.isdir(args.model_name_or_path):
-        print("load model from local folder:", args.model_name_or_path+"/model_state.pdparams")
-        model = model_class.from_pretrained(args.model_name_or_path+"/model_state.pdparams",config=args.model_name_or_path+"/model_config.json")
-    else:
-        model = model_class.from_pretrained(args.model_name_or_path)
+    # if os.path.isdir(args.model_name_or_path):
+    #     print("load model from local folder:", args.model_name_or_path+"/model_state.pdparams")
+    #     model = model_class.from_pretrained(args.model_name_or_path+"/model_state.pdparams",config=args.model_name_or_path+"/model_config.json")
+    # else:
+    model = model_class.from_pretrained(args.model_name_or_path)
 
     if paddle.distributed.get_world_size() > 1:
         model = paddle.DataParallel(model)
-    
+
     if args.do_predict:
         if args.predict_file:
             dev_ds = load_dataset('squad', data_files=args.predict_file)
-            log_writer=LogWriter(logdir="./log/squad_pred")
+            log_writer = LogWriter(logdir="./log/squad_pred")
         elif args.version_2_with_negative:
             dev_ds = load_dataset('squad', splits='dev_v2')
-            log_writer=LogWriter(logdir="./log/squad_v2")
+            log_writer = LogWriter(logdir="./log/squad_v2")
         else:
             dev_ds = load_dataset('squad', splits='dev_v1')
-            log_writer=LogWriter(logdir="./log/squad_v1.1")
+            log_writer = LogWriter(logdir="./log/squad_v1.1")
 
         dev_ds.map(partial(
             prepare_validation_features, tokenizer=tokenizer, args=args),
-                batched=True)
+            batched=True)
         dev_batch_sampler = paddle.io.BatchSampler(
-            dev_ds, batch_size=args.batch_size*2, shuffle=False)
+            dev_ds, batch_size=args.batch_size * 2, shuffle=False)
 
         dev_batchify_fn = lambda samples, fn=Dict({
             "input_ids": Pad(axis=0, pad_val=tokenizer.pad_token_id),
@@ -278,9 +278,8 @@ def run(args):
             dataset=dev_ds,
             batch_sampler=dev_batch_sampler,
             collate_fn=dev_batchify_fn,
-            num_workers=4,
+            num_workers=0,
             return_list=True)
-
     if args.do_train:
         # layer_lr for base
         ############################################################
@@ -292,13 +291,13 @@ def run(args):
                 zengliang = 5
             if i == 1:
                 zengliang = 23
-            depth_to_slice[i] = (start,start+zengliang)
+            depth_to_slice[i] = (start, start + zengliang)
             start += zengliang
-        depth_to_slice[14] = (start,-1)
-        
+        depth_to_slice[14] = (start, -1)
+
         for depth, slice in depth_to_slice.items():
             layer_lr = args.layer_lr_decay ** (n_layers + 2 - depth)
-            if slice[1]==-1:
+            if slice[1] == -1:
                 for p in model.parameters()[slice[0]:]:
                     p.optimize_attr["learning_rate"] *= layer_lr
             else:
@@ -313,7 +312,7 @@ def run(args):
             train_ds = load_dataset('squad', splits='train_v1')
         train_ds.map(partial(
             prepare_train_features, tokenizer=tokenizer, args=args),
-                     batched=True)
+            batched=True)
         train_batch_sampler = paddle.io.DistributedBatchSampler(
             train_ds, batch_size=args.batch_size, shuffle=True)
         train_batchify_fn = lambda samples, fn=Dict({
@@ -328,7 +327,7 @@ def run(args):
             dataset=train_ds,
             batch_sampler=train_batch_sampler,
             collate_fn=train_batchify_fn,
-            num_workers=4,
+            num_workers=0,
             return_list=True)
 
         num_training_steps = args.max_steps if args.max_steps > 0 else len(
@@ -336,16 +335,14 @@ def run(args):
         num_train_epochs = math.ceil(num_training_steps /
                                      len(train_data_loader))
 
-
         if args.scheduler_type == "linear":
             lr_scheduler = LinearDecayWithWarmup(args.learning_rate, num_training_steps,
-                                                args.warmup_proportion)
+                                                 args.warmup_proportion)
         elif args.scheduler_type == "cosine":
             lr_scheduler = CosineDecayWithWarmup(args.learning_rate, num_training_steps,
-                                                args.warmup_proportion)     
+                                                 args.warmup_proportion)
 
-
-        # Generate parameter names needed to perform weight decay.
+            # Generate parameter names needed to perform weight decay.
         # All bias and LayerNorm parameters are excluded.
         decay_params = [
             p.name for n, p in model.named_parameters()
@@ -371,35 +368,34 @@ def run(args):
                 weight_decay=args.weight_decay,
                 apply_decay_param_fun=lambda x: x in decay_params)
         criterion = CrossEntropyLossForSQuAD()
-
         global_step = 0
         tic_train = time.time()
-        best_exact_score=0
+        best_exact_score = 0
 
         for epoch in range(num_train_epochs):
             model.train()
-            print("epoch:",epoch)
-            descriptor=tqdm.tqdm(enumerate(train_data_loader))
+            print("epoch:", epoch)
+            descriptor = tqdm.tqdm(enumerate(train_data_loader))
             for step, batch in descriptor:
                 global_step += 1
-                input_ids, token_type_ids, attention_mask,start_positions, end_positions = batch
+                input_ids, token_type_ids, attention_mask, start_positions, end_positions = batch
 
                 if freeze_basemodel:
-                    outputs=model.funnel(input_ids=input_ids, token_type_ids=token_type_ids,attention_mask=attention_mask)
+                    outputs = model.funnel(input_ids=input_ids, token_type_ids=token_type_ids,
+                                           attention_mask=attention_mask)
                     last_hidden_state = outputs[0]
-                    last_hidden_state.stop_gradient=True
+                    last_hidden_state.stop_gradient = True
                     logits = model.qa_outputs(last_hidden_state)
-                    start_logits, end_logits = logits.split(1, dim=-1)
+                    start_logits, end_logits = split(logits ,1, dim=-1)
                     start_logits = start_logits.squeeze(-1).contiguous()
                     end_logits = end_logits.squeeze(-1).contiguous()
-                    logits=(start_logits,end_logits)
+                    logits = (start_logits, end_logits)
                 else:
                     logits = model(
-                        input_ids=input_ids, token_type_ids=token_type_ids,attention_mask=attention_mask)
-
+                        input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)
 
                 loss = criterion(logits, (start_positions, end_positions))
-                descriptor.set_description("loss:%.4f"%(float(loss)))
+                descriptor.set_description("loss:%.4f" % (float(loss)))
 
                 if global_step % args.logging_steps == 0:
                     print(
@@ -416,12 +412,12 @@ def run(args):
                 lr_scheduler.step()
                 optimizer.clear_grad()
 
-                if global_step % args.save_steps == args.save_steps-1 or global_step == num_training_steps:
+                if global_step % args.save_steps == args.save_steps - 1 or global_step == num_training_steps:
                     if rank == 0:
                         output_dir = os.path.join(args.output_dir,
                                                   "model_%d" % global_step)
                         old_dir = os.path.join(args.output_dir,
-                                                  "model_%d" % (global_step-args.save_steps) )
+                                               "model_%d" % (global_step - args.save_steps))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
                         # need better way to get inner model of DataParallel
@@ -430,26 +426,26 @@ def run(args):
                         model_to_save.save_pretrained(output_dir)
                         tokenizer.save_pretrained(output_dir)
                         print('Saving checkpoint to:', output_dir)
-                        os.system("rm -rf "+old_dir)
+                        os.system("rm -rf " + old_dir)
                     if global_step == num_training_steps:
                         break
 
                     if args.do_predict and rank == 0:
                         print("evaluate....")
-                        out_eval=evaluate(model, dev_data_loader, args, global_step,max_eval_examples=len(dev_ds))
+                        out_eval = evaluate(model, dev_data_loader, args, global_step, max_eval_examples=len(dev_ds))
                         log_writer.add_scalar(tag="eval/exact_first1k", step=global_step, value=out_eval['exact'])
                         log_writer.add_scalar(tag="eval/f1_first1k", step=global_step, value=out_eval['f1'])
-                        if best_exact_score<out_eval['exact']:
-                            best_exact_score=out_eval['exact']
+                        if best_exact_score < out_eval['exact']:
+                            best_exact_score = out_eval['exact']
                             output_dir = os.path.join(args.output_dir,
-                                                      "best" )
+                                                      "best")
                             model_to_save.save_pretrained(output_dir)
                             tokenizer.save_pretrained(output_dir)
                             print('Saving best model to:', output_dir)
-                            out_eval['global_step']=global_step
-                            json.dump(out_eval,open(output_dir+"/eval.json",'a'))
+                            out_eval['global_step'] = global_step
+                            json.dump(out_eval, open(output_dir + "/eval.json", 'a'))
     if args.do_predict and rank == 0:
-        out_eval=evaluate(model, dev_data_loader, args, "final", max_eval_examples=len(dev_ds))
+        out_eval = evaluate(model, dev_data_loader, args, "final", max_eval_examples=len(dev_ds))
 
 
 if __name__ == "__main__":

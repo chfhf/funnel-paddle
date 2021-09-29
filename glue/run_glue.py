@@ -264,8 +264,7 @@ def convert_example(example, tokenizer, label_list, max_seq_length=512, is_test=
     else:
         example = tokenizer(
             example["sentence1"],
-            text_pair=example["sentence2"],
-            return_offsets_mapping=True,max_length=max_seq_length,return_overflowing_tokens=True,return_token_type_ids=True
+            text_pair=example["sentence2"],return_overflowing_tokens=True,return_token_type_ids=True,max_seq_len=max_seq_length
         )
 
     if not is_test:

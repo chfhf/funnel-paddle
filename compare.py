@@ -1,4 +1,4 @@
-import hf_paddle
+
 from paddlenlp.transformers import FunnelTokenizerFast, FunnelModel as PDImplemBertModel
 from transformers.models.funnel import FunnelModel as PTImplemBertModel
 
@@ -26,7 +26,7 @@ for model in model_list:
     pt_inputs = torch.tensor([inputs]*100)
     pd_inputs = paddle.to_tensor([inputs]*100)
     # pt_model = PTImplemBertModel.from_pretrained(f"{model_folder}/pytorch_model.bin",config=f"{model_folder}/torch_config.json" )# model[0])
-    pt_model = PTImplemBertModel.from_pretrained(model[0])
+    pt_model = PTImplemBertModel.from_pretrained(model[0],        hidden_dropout=0.0,  attention_dropout=0.0,  activation_dropout=0.0)
     # pt_model.eval()
 
     start=time.time()
@@ -40,9 +40,10 @@ for model in model_list:
 
     # pd_model = PDImplemBertModel.from_pretrained(f"{model_folder}/pytorch_model.bin",config=f"{model_folder}/torch_config.json") # )
     # pd_model = PDImplemBertModel.from_pretrained("data/paddorch_model.pdparams", config="data/config.json")
-    # pd_model = PDImplemBertModel.from_pretrained(f"data/{model[0]}" )  # )
+    pd_model = PDImplemBertModel.from_pretrained(f"data/{model[0]}" ,     hidden_dropout=0.0,  attention_dropout=0.0,  activation_dropout=0.0)  # )
+
     # pd_model = PDImplemBertModel.from_pretrained("glue/qnli/qnli_ft_model_best")  # )qnli_ft_model_best
-    pd_model = PDImplemBertModel.from_pretrained(model[0])
+    # pd_model = PDImplemBertModel.from_pretrained(model[0])
 
     # pd_model= modeling_deberta.DebertaForQuestionAnswering.from_pretrained("data/pytorch_model.bin.pdparams",config="data/config.json")
     pd_model.train()

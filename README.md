@@ -6,23 +6,19 @@
 **摘要：**
 本项目是 [Funnel Pytorch版本](https://github.com/huggingface/transformers/tree/master/src/transformers/models/funnel)  在 Paddle 2.x上的开源实现。
 
-复现思路：
-1. 实现了Paddorch库，把Pytorch 接口在 Paddle实现实现，在paddorch下
-2. 实现了HF_paddle库，把huggingface_transformer 接口在Paddorch/Paddle上实现，hf_transformers_paddle
-3. 封装了HF_paddle库中Funnel模型（原huggingface 接口）在paddlenlp中
-
 
 ## 原论文效果
 "funnel-transformer/xlarge"**模型指标**：
 
-> QNLI验证集上accuracy=95.1%（见论文table 3），
+> QNLI验证集上accuracy=95.1%（见论文table 3）
+>
 > SQuAD v1.1验证集上F1/EM=94.7/89.0，SQuAD v2.0验证集F1/EM=90.4/87.6（见论文table 5）
 
 ##  复现结果
 
-> QNLI验证集上accuracy=95.277%
+> QNLI验证集上accuracy=95.149%
 >
-> SQuAD v1.1验证集上F1/EM=94.25/88.3，SQuAD v2.0验证集F1/EM=89.70/86.7（见论文table 5）
+> SQuAD v1.1验证集上F1/EM=94.73/88.81，SQuAD v2.0验证集F1/EM=90.12/87.21（见论文table 5）
 
 
 
@@ -44,14 +40,6 @@ cd paddlenlp
 pip install -r requirements.txt
 pip install -e .
 # 返回初始目录
-##安装 Paddorch
-cd paddorch
-pip install -r requirements.txt
-pip install -e .
-##安装 HF_paddle
-cd hf_paddle
-pip install -r requirements.txt
-pip install -e .
 
 ```
 
@@ -134,7 +122,7 @@ cd funnel_paddle/glue/;python  run_glue.py \
 --num_train_epochs 0
 
 # 验证结果
-# eval loss: 0.101753, acc: 0.9527732015376167
+# eval loss: 0.013401, acc: 0.9514918542925133
 ```
 
 #### 2、SQuAD v1.1 以及 SQuAD v2.0
@@ -180,29 +168,29 @@ Baidu网盘链接: https://pan.baidu.com/s/1Sz7BaAbbA4tUAlmPbRsemw  密码: 5kku
 ```python
 # SQuAD v1.1
 {
-  "exact": 88.37275307473983,
-  "f1": 94.25058583243572,
-  "total": 10570,
-  "HasAns_exact": 88.37275307473983,
-  "HasAns_f1": 94.25058583243572,
-  "HasAns_total": 10570
+"exact": 88.80794701986756,
+"f1": 94.7256670963965,
+"total": 10570,
+"HasAns_exact": 88.80794701986756,
+"HasAns_f1": 94.7256670963965,
+"HasAns_total": 10570
 }
 
 # SQuAD v2.0
 {
-  "exact": 86.75987534742694,
-  "f1": 89.70414937683252,
-  "total": 11873,
-  "HasAns_exact": 82.70917678812415,
-  "HasAns_f1": 88.60616827785663,
-  "HasAns_total": 5928,
-  "NoAns_exact": 90.79899074852817,
-  "NoAns_f1": 90.79899074852817,
-  "NoAns_total": 5945,
-  "best_exact": 87.13888654931357,
-  "best_exact_thresh": -1.168607234954834,
-  "best_f1": 89.9986913838358,
-  "best_f1_thresh": -0.9934439659118652
+"exact": 87.2146887896909,
+"f1": 90.11781334911193,
+"total": 11873,
+"HasAns_exact": 82.96221322537112,
+"HasAns_f1": 88.77678776889464,
+"HasAns_total": 5928,
+"NoAns_exact": 91.45500420521446,
+"NoAns_f1": 91.45500420521446,
+"NoAns_total": 5945,
+"best_exact": 87.44209551082288,
+"best_exact_thresh": -0.9500179290771484,
+"best_f1": 90.25906316399049,
+"best_f1_thresh": -0.9500179290771484
 }
 ```
 
